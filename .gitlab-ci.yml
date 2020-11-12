@@ -1,0 +1,63 @@
+image: registry.gitlab.com/gitlab-org/terraform-images/stable:latest
+
+variables:
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/default
+
+cache:
+  paths:
+    - .terraform/**
+
+stages:
+  - init
+  - validate
+  - plan
+  - apply
+  - destroy
+
+init:
+  stage: init
+  script:
+    - gitlab-terraform init
+
+validate:
+  stage: validate
+  script:
+    - gitlab-terraform validate
+  except:
+    variables:
+      - $TERRAFORM_DESTROY
+
+plan:
+  stage: plan
+  script:
+    - gitlab-terraform plan
+    - gitlab-terraform plan-json
+  artifacts:
+    paths:
+      - plan.cache
+    reports:
+      terraform: plan.json
+  except:
+    variables:
+      - $TERRAFORM_DESTROY
+
+apply:
+  stage: apply
+  script:
+    - gitlab-terraform apply
+  only:
+    - master
+  except:
+    variables:
+      - $TERRAFORM_DESTROY
+
+destroy:
+  stage: destroy
+  script:
+    - gitlab-terraform destroy -auto-approve
+  only:
+    refs:
+      - master
+    variables:
+      - $TERRAFORM_DESTROY
+  when: manual
